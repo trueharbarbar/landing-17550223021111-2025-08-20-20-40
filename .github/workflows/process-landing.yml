@@ -1,0 +1,62 @@
+name: Process Landing
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'landing.zip'
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Extract archive
+        run: |
+          unzip landing.zip
+          rm landing.zip
+      - name: Add kclient.php
+        run: |
+          cat > kclient.php << 'EOF'
+<?php
+class KClient
+{
+    const SESSION_SUB_ID = 'sub_id';
+    const SESSION_LANDING_TOKEN = 'landing_token';
+    const VERSION = 3;
+    
+    private $_httpClient;
+    private $_trackerUrl;
+    private $_params = array();
+    
+    public function __construct($trackerUrl, $token)
+    {
+        $this->trackerUrl($trackerUrl);
+        $this->campaignToken($token);
+        $this->version(self::VERSION);
+        $this->fillParams();
+    }
+    
+    public function fillParams()
+    {
+        $this->ip($this->_findIp())
+            ->ua(isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : null);
+    }
+    
+    // Остальные методы будут добавлены позже
+    public function execute() {
+        echo "KClient executed successfully";
+    }
+}
+?>
+EOF
+      - name: Modify index.php
+        run: |
+          if [ -f index.php ]; then
+            sed -i '1i<?php require_once "kclient.php"; // Added by automation' index.php
+          fi
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Added KClient and modified index.php" || exit 0
+          git push
